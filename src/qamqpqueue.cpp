@@ -105,8 +105,12 @@ void QAmqpQueuePrivate::_q_content(const QAmqpContentFrame &frame)
         currentMessage.d->properties[property] = it.value();
     }
 
+    qDebug()    << "currentMessage.d->leftSize: "
+                << currentMessage.d->leftSize;
     if (currentMessage.d->leftSize == 0) {
         // message with an empty body
+        qDebug() << "Emitting message, payload:"
+            << currentMessage.d->payload;
         q->enqueue(currentMessage);
         Q_EMIT q->messageReceived();
     }
@@ -125,9 +129,17 @@ void QAmqpQueuePrivate::_q_body(const QAmqpContentBodyFrame &frame)
     }
 
     Q_ASSERT(currentMessage.d->leftSize >= frame.body().size());
+    qDebug()    << "currentMessage.d->leftSize: "
+                << currentMessage.d->leftSize
+                << "; frame.body().size() "
+                << frame.body().size()
+                << "; frame body: "
+                << frame.body();
     currentMessage.d->payload.append(frame.body());
     currentMessage.d->leftSize -= frame.body().size();
     if (currentMessage.d->leftSize == 0) {
+        qDebug() << "Emitting message, payload:"
+            << currentMessage.d->payload;
         q->enqueue(currentMessage);
         Q_EMIT q->messageReceived();
     }
@@ -208,6 +220,9 @@ void QAmqpQueuePrivate::getOk(const QAmqpMethodFrame &frame)
     message.d->exchangeName = QAmqpFrame::readAmqpField(in, QAmqpMetaType::ShortString).toString();
     message.d->routingKey = QAmqpFrame::readAmqpField(in, QAmqpMetaType::ShortString).toString();
     currentMessage = message;
+    Q_ASSERT(currentMessage.d->payload.size() == 0);
+    qDebug() << "New message object.  Payload: "
+        << currentMessage.d->payload;
 }
 
 void QAmqpQueuePrivate::consumeOk(const QAmqpMethodFrame &frame)
@@ -239,6 +254,9 @@ void QAmqpQueuePrivate::deliver(const QAmqpMethodFrame &frame)
     message.d->exchangeName = QAmqpFrame::readAmqpField(in, QAmqpMetaType::ShortString).toString();
     message.d->routingKey = QAmqpFrame::readAmqpField(in, QAmqpMetaType::ShortString).toString();
     currentMessage = message;
+    Q_ASSERT(currentMessage.d->payload.size() == 0);
+    qDebug() << "New message object.  Payload: "
+        << currentMessage.d->payload;
 }
 
 void QAmqpQueuePrivate::declare()
