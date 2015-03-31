@@ -124,6 +124,7 @@ void QAmqpQueuePrivate::_q_body(const QAmqpContentBodyFrame &frame)
         return;
     }
 
+    Q_ASSERT(currentMessage.d->leftSize >= frame.body().size());
     currentMessage.d->payload.append(frame.body());
     currentMessage.d->leftSize -= frame.body().size();
     if (currentMessage.d->leftSize == 0) {
