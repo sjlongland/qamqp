@@ -91,8 +91,11 @@ void QAmqpChannelPrivate::sendFrame(const QAmqpFrame &frame,
     }
 
     if (hasPending()) {
+        qAmqpDebug() << "CHANNEL: Synchronous operation in "
+                        "progress, queueing frame.";
         pending.enqueue(QAmqpPendingFrame(frame, synchronous));
     } else {
+        qAmqpDebug() << "CHANNEL: Transmitting frame.";
         syncPending = synchronous;
         client->d_func()->sendFrame(frame);
     }
@@ -118,7 +121,7 @@ void QAmqpChannelPrivate::open()
     arguments[0] = 0;
 
     frame.setArguments(arguments);
-    sendFrame(frame, true);
+    client->d_func()->sendFrame(frame, true);
 }
 
 void QAmqpChannelPrivate::flow(bool active)
@@ -179,7 +182,7 @@ void QAmqpChannelPrivate::close(int code, const QString &text, int classId, int 
     QAmqpMethodFrame frame(QAmqpFrame::Channel, miClose);
     frame.setChannel(channelNumber);
     frame.setArguments(arguments);
-    sendFrame(frame, true);
+    client->d_func()->sendFrame(frame, true);
 }
 
 void QAmqpChannelPrivate::close(const QAmqpMethodFrame &frame)
@@ -214,6 +217,7 @@ void QAmqpChannelPrivate::close(const QAmqpMethodFrame &frame)
     closeOkFrame.setChannel(channelNumber);
     clearPending();
     sendFrame(closeOkFrame, false);
+    client->d_func()->clearPending();
 }
 
 void QAmqpChannelPrivate::closeOk(const QAmqpMethodFrame &)
@@ -233,6 +237,7 @@ void QAmqpChannelPrivate::openOk(const QAmqpMethodFrame &)
     Q_EMIT q->opened();
     q->channelOpened();
     clearPending();
+    client->d_func()->clearPending();
 }
 
 void QAmqpChannelPrivate::_q_disconnected()
@@ -262,12 +267,22 @@ void QAmqpChannelPrivate::sendPending()
     while (!(syncPending || pending.isEmpty())) {
         QAmqpPendingFrame frame(pending.dequeue());
         syncPending = frame.synchronous();
+        qAmqpDebug() << "CHANNEL: Transmitting next pending frame.";
         client->d_func()->sendFrame(frame);
+    }
+    if (pending.isEmpty()) {
+        qAmqpDebug() << "CHANNEL: Pending queue is clear.";
+    }
+    if (syncPending) {
+        qAmqpDebug() << "CHANNEL: Waiting for synchronous reply.";
     }
 }
 
 void QAmqpChannelPrivate::clearPending()
 {
+    if (pending.isEmpty()) {
+        qAmqpDebug() << "CHANNEL: Cleared pending state.";
+    }
     syncPending = false;
     sendPending();
 }
