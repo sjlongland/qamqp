@@ -1,6 +1,7 @@
 #include <QDateTime>
 #include <QList>
 #include <QDebug>
+#include <QBuffer>
 
 #include "qamqptable.h"
 #include "qamqpglobal.h"
@@ -484,7 +485,8 @@ QAmqpPendingFrame::QAmqpPendingFrame(const QAmqpFrame& frame, bool synchronous)
      synchronous_(synchronous)
 {
     QBuffer payload;
-    frame.writePayload(payload);
+    QDataStream stream(&payload);
+    frame.writePayload(stream);
     payload_ = payload.buffer();
 }
 

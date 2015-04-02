@@ -68,33 +68,11 @@ private:
 
     friend QDataStream &operator<<(QDataStream &stream, const QAmqpFrame &frame);
     friend QDataStream &operator>>(QDataStream &stream, QAmqpFrame &frame);
+    friend class QAmqpPendingFrame;
 };
 
 QDataStream &operator<<(QDataStream &, const QAmqpFrame &frame);
 QDataStream &operator>>(QDataStream &, QAmqpFrame &frame);
-
-class QAMQP_EXPORT QAmqpMethodFrame : public QAmqpFrame
-{
-public:
-    QAmqpMethodFrame();
-    QAmqpMethodFrame(MethodClass methodClass, qint16 id);
-
-    qint16 id() const;
-    MethodClass methodClass() const;
-
-    virtual qint32 size() const;
-
-    QByteArray arguments() const;
-    void setArguments(const QByteArray &data);
-
-private:
-    void writePayload(QDataStream &stream) const;
-    void readPayload(QDataStream &stream);
-
-    short methodClass_;
-    qint16 id_;
-    QByteArray arguments_;
-};
 
 class QAMQP_EXPORT QAmqpMethodFrame : public QAmqpFrame
 {
@@ -178,7 +156,7 @@ class QAmqpPendingFrame : public QAmqpFrame
 {
 public:
     QAmqpPendingFrame();
-    QAmqpPendingFrame(const QAmqpFrame& frame, synchronous=false);
+    QAmqpPendingFrame(const QAmqpFrame& frame, bool synchronous=false);
     virtual qint32 size() const;
     virtual bool synchronous() const;
 
