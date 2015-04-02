@@ -495,6 +495,11 @@ qint32 QAmqpPendingFrame::size() const
     return size_;
 }
 
+bool QAmqpPendingFrame::synchronous() const
+{
+    return synchronous_;
+}
+
 void QAmqpPendingFrame::readPayload(QDataStream &stream)
 {
     Q_UNUSED(stream)
