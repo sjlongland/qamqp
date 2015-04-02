@@ -28,6 +28,7 @@ QAmqpClientPrivate::QAmqpClientPrivate(QAmqpClient *q)
       channelMax(0),
       heartbeatDelay(0),
       frameMax(AMQP_FRAME_MAX),
+      syncPending(false),
       error(QAMQP::NoError),
       q_ptr(q)
 {
@@ -304,15 +305,23 @@ void QAmqpClientPrivate::_q_readyRead()
     }
 }
 
-void QAmqpClientPrivate::sendFrame(const QAmqpFrame &frame)
+void QAmqpClientPrivate::sendFrame(const QAmqpFrame &frame, bool synchronous)
 {
     if (socket->state() != QAbstractSocket::ConnectedState) {
         qAmqpDebug() << Q_FUNC_INFO << "socket not connected: " << socket->state();
         return;
     }
 
-    QDataStream stream(socket);
-    stream << frame;
+    if (hasPending()) {
+        qAmqpDebug() << "CLIENT: Synchronous operation in "
+                        "progress, queueing frame.";
+        pending.enqueue(QAmqpPendingFrame(frame, synchronous));
+    } else {
+        qAmqpDebug() << "CLIENT: Transmitting frame.";
+        QDataStream stream(socket);
+        syncPending = synchronous;
+        stream << frame;
+    }
 }
 
 bool QAmqpClientPrivate::_q_method(const QAmqpMethodFrame &frame)
@@ -438,6 +447,7 @@ void QAmqpClientPrivate::openOk(const QAmqpMethodFrame &frame)
     qAmqpDebug(">> OpenOK");
     connected = true;
     Q_EMIT q->connected();
+    clearPending();
 }
 
 void QAmqpClientPrivate::closeOk(const QAmqpMethodFrame &frame)
@@ -450,6 +460,7 @@ void QAmqpClientPrivate::closeOk(const QAmqpMethodFrame &frame)
         heartbeatTimer->stop();
     socket->disconnectFromHost();
     Q_EMIT q->disconnected();
+    clearPending();
 }
 
 void QAmqpClientPrivate::close(const QAmqpMethodFrame &frame)
@@ -480,7 +491,7 @@ void QAmqpClientPrivate::close(const QAmqpMethodFrame &frame)
 
     // complete handshake
     QAmqpMethodFrame closeOkFrame(QAmqpFrame::Connection, QAmqpClientPrivate::miCloseOk);
-    sendFrame(closeOkFrame);
+    sendFrame(closeOkFrame, true);
 }
 
 void QAmqpClientPrivate::startOk()
@@ -549,6 +560,35 @@ void QAmqpClientPrivate::close(int code, const QString &text, int classId, int m
     QAmqpMethodFrame frame(QAmqpFrame::Connection, QAmqpClientPrivate::miClose);
     frame.setArguments(arguments);
     sendFrame(frame);
+}
+
+bool QAmqpClientPrivate::hasPending() const
+{
+    return (syncPending || (!pending.isEmpty()));
+}
+
+void QAmqpClientPrivate::sendPending()
+{
+    while (!(syncPending || pending.isEmpty())) {
+        QAmqpPendingFrame frame(pending.dequeue());
+        QDataStream stream(socket);
+        qAmqpDebug() << "CLIENT: Transmitting next pending frame\n";
+        syncPending = frame.synchronous();
+        stream << frame;
+    }
+    if (pending.isEmpty()) {
+        qAmqpDebug() << "CLIENT: Pending queue is clear.";
+    }
+    if (syncPending) {
+        qAmqpDebug() << "CLIENT: Waiting for synchronous reply.";
+    }
+}
+
+void QAmqpClientPrivate::clearPending()
+{
+    qAmqpDebug() << "CLIENT: Cleared pending state.";
+    syncPending = false;
+    sendPending();
 }
 
 //////////////////////////////////////////////////////////////////////////

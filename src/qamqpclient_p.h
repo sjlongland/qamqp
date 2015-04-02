@@ -6,6 +6,7 @@
 #include <QPointer>
 #include <QAbstractSocket>
 #include <QSslError>
+#include <QQueue>
 
 #include "qamqpglobal.h"
 #include "qamqpauthenticator.h"
@@ -40,7 +41,11 @@ public:
     void setUsername(const QString &username);
     void setPassword(const QString &password);
     void parseConnectionString(const QString &uri);
-    void sendFrame(const QAmqpFrame &frame);
+    void sendFrame(const QAmqpFrame &frame, bool synchronous=false);
+
+    bool hasPending() const;
+    void sendPending();
+    void clearPending();
 
     // private slots
     void _q_socketConnected();
@@ -96,6 +101,9 @@ public:
     qint16 channelMax;
     qint16 heartbeatDelay;
     qint32 frameMax;
+
+    bool syncPending;
+    QQueue<QAmqpPendingFrame> pending;
 
     QAMQP::Error error;
     QString errorString;
