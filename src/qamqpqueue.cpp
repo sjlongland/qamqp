@@ -160,6 +160,7 @@ void QAmqpQueuePrivate::declareOk(const QAmqpMethodFrame &frame)
     qAmqpDebug("message count %d\nConsumer count: %d", messageCount, consumerCount);
 
     Q_EMIT q->declared();
+    clearPending();
 }
 
 void QAmqpQueuePrivate::purgeOk(const QAmqpMethodFrame &frame)
@@ -174,6 +175,7 @@ void QAmqpQueuePrivate::purgeOk(const QAmqpMethodFrame &frame)
     stream >> messageCount;
 
     Q_EMIT q->purged(messageCount);
+    clearPending();
 }
 
 void QAmqpQueuePrivate::deleteOk(const QAmqpMethodFrame &frame)
@@ -189,6 +191,7 @@ void QAmqpQueuePrivate::deleteOk(const QAmqpMethodFrame &frame)
     qAmqpDebug("Message count %d", messageCount);
 
     Q_EMIT q->removed();
+    clearPending();
 }
 
 void QAmqpQueuePrivate::bindOk(const QAmqpMethodFrame &frame)
@@ -198,6 +201,7 @@ void QAmqpQueuePrivate::bindOk(const QAmqpMethodFrame &frame)
     Q_Q(QAmqpQueue);
     qAmqpDebug() << Q_FUNC_INFO << "bound to exchange";
     Q_EMIT q->bound();
+    clearPending();
 }
 
 void QAmqpQueuePrivate::unbindOk(const QAmqpMethodFrame &frame)
@@ -207,6 +211,7 @@ void QAmqpQueuePrivate::unbindOk(const QAmqpMethodFrame &frame)
     Q_Q(QAmqpQueue);
     qAmqpDebug() << Q_FUNC_INFO << "unbound from exchange";
     Q_EMIT q->unbound();
+    clearPending();
 }
 
 void QAmqpQueuePrivate::getOk(const QAmqpMethodFrame &frame)
@@ -223,6 +228,7 @@ void QAmqpQueuePrivate::getOk(const QAmqpMethodFrame &frame)
     Q_ASSERT(currentMessage.d->payload.size() == 0);
     qDebug() << "New message object.  Payload: "
         << currentMessage.d->payload;
+    clearPending();
 }
 
 void QAmqpQueuePrivate::consumeOk(const QAmqpMethodFrame &frame)
@@ -235,6 +241,7 @@ void QAmqpQueuePrivate::consumeOk(const QAmqpMethodFrame &frame)
     qAmqpDebug("consumer tag = %s", qPrintable(consumerTag));
     consuming = true;
     Q_EMIT q->consuming(consumerTag);
+    clearPending();
 }
 
 void QAmqpQueuePrivate::deliver(const QAmqpMethodFrame &frame)
@@ -273,7 +280,7 @@ void QAmqpQueuePrivate::declare()
     QAmqpFrame::writeAmqpField(out, QAmqpMetaType::Hash, QAmqpTable());
 
     frame.setArguments(arguments);
-    sendFrame(frame);
+    sendFrame(frame, true);
 
     if (delayedDeclare)
         delayedDeclare = false;
@@ -293,6 +300,7 @@ void QAmqpQueuePrivate::cancelOk(const QAmqpMethodFrame &frame)
 
     consumerTag.clear();
     Q_EMIT q->cancelled(consumer);
+    clearPending();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -364,7 +372,7 @@ void QAmqpQueue::remove(int options)
     out << qint8(options);
 
     frame.setArguments(arguments);
-    d->sendFrame(frame);
+    d->sendFrame(frame, true);
 }
 
 void QAmqpQueue::purge()
@@ -384,7 +392,7 @@ void QAmqpQueue::purge()
     out << qint8(0);    // no-wait
 
     frame.setArguments(arguments);
-    d->sendFrame(frame);
+    d->sendFrame(frame, true);
 }
 
 void QAmqpQueue::bind(QAmqpExchange *exchange, const QString &key)
@@ -420,7 +428,7 @@ void QAmqpQueue::bind(const QString &exchangeName, const QString &key)
     QAmqpFrame::writeAmqpField(out, QAmqpMetaType::Hash, QAmqpTable());
 
     frame.setArguments(arguments);
-    d->sendFrame(frame);
+    d->sendFrame(frame, true);
 }
 
 void QAmqpQueue::unbind(QAmqpExchange *exchange, const QString &key)
@@ -453,7 +461,7 @@ void QAmqpQueue::unbind(const QString &exchangeName, const QString &key)
     QAmqpFrame::writeAmqpField(out, QAmqpMetaType::Hash, QAmqpTable());
 
     frame.setArguments(arguments);
-    d->sendFrame(frame);
+    d->sendFrame(frame, true);
 }
 
 bool QAmqpQueue::consume(int options)
@@ -483,7 +491,7 @@ bool QAmqpQueue::consume(int options)
     QAmqpFrame::writeAmqpField(out, QAmqpMetaType::Hash, QAmqpTable());
 
     frame.setArguments(arguments);
-    d->sendFrame(frame);
+    d->sendFrame(frame, true);
     return true;
 }
 
@@ -530,7 +538,7 @@ void QAmqpQueue::get(bool noAck)
     out << qint8(noAck ? 1 : 0); // no-ack
 
     frame.setArguments(arguments);
-    d->sendFrame(frame);
+    d->sendFrame(frame, true);
 }
 
 void QAmqpQueue::ack(const QAmqpMessage &message)
@@ -608,7 +616,7 @@ bool QAmqpQueue::cancel(bool noWait)
     out << (noWait ? qint8(0x01) : qint8(0x0));
 
     frame.setArguments(arguments);
-    d->sendFrame(frame);
+    d->sendFrame(frame, true);
     return true;
 }
 
