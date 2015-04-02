@@ -65,6 +65,7 @@ void QAmqpFrame::readEnd(QDataStream &stream)
 QDataStream &operator<<(QDataStream &stream, const QAmqpFrame &frame)
 {
     // write header
+    Q_ASSERT(frame.type_ != QAmqpFrame::NoType);
     stream << frame.type_;
     stream << frame.channel_;
     stream << frame.size();
@@ -468,4 +469,36 @@ void QAmqpHeartbeatFrame::readPayload(QDataStream &stream)
 void QAmqpHeartbeatFrame::writePayload(QDataStream &stream) const
 {
     Q_UNUSED(stream)
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+QAmqpPendingFrame::QAmqpPendingFrame()
+	 : QAmqpFrame(QAmqpFrame::NoType), payload_(), size_(0),
+     synchronous_(false)
+{
+}
+
+QAmqpPendingFrame::QAmqpPendingFrame(const QAmqpFrame& frame, bool synchronous)
+	 : QAmqpFrame(frame.type()), payload_(), size_(frame.size()),
+     synchronous_(synchronous)
+{
+    QBuffer payload;
+    frame.writePayload(payload);
+    payload_ = payload.buffer();
+}
+
+qint32 QAmqpPendingFrame::size() const
+{
+    return size_;
+}
+
+void QAmqpPendingFrame::readPayload(QDataStream &stream)
+{
+    Q_UNUSED(stream)
+}
+
+void QAmqpPendingFrame::writePayload(QDataStream &stream) const
+{
+    stream << payload_;
 }

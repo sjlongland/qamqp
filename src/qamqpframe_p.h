@@ -19,6 +19,7 @@ public:
 
     enum FrameType
     {
+        NoType = 0,
         Method = 1,
         Header = 2,
         Body = 3,
@@ -71,6 +72,29 @@ private:
 
 QDataStream &operator<<(QDataStream &, const QAmqpFrame &frame);
 QDataStream &operator>>(QDataStream &, QAmqpFrame &frame);
+
+class QAMQP_EXPORT QAmqpMethodFrame : public QAmqpFrame
+{
+public:
+    QAmqpMethodFrame();
+    QAmqpMethodFrame(MethodClass methodClass, qint16 id);
+
+    qint16 id() const;
+    MethodClass methodClass() const;
+
+    virtual qint32 size() const;
+
+    QByteArray arguments() const;
+    void setArguments(const QByteArray &data);
+
+private:
+    void writePayload(QDataStream &stream) const;
+    void readPayload(QDataStream &stream);
+
+    short methodClass_;
+    qint16 id_;
+    QByteArray arguments_;
+};
 
 class QAMQP_EXPORT QAmqpMethodFrame : public QAmqpFrame
 {
@@ -148,6 +172,22 @@ public:
 private:
     void writePayload(QDataStream &stream) const;
     void readPayload(QDataStream &stream);
+};
+
+class QAmqpPendingFrame : public QAmqpFrame
+{
+public:
+    QAmqpPendingFrame();
+    QAmqpPendingFrame(const QAmqpFrame& frame, synchronous=false);
+    virtual qint32 size() const;
+    virtual bool synchronous() const;
+
+private:
+    void writePayload(QDataStream &stream) const;
+    void readPayload(QDataStream &stream);
+    QByteArray payload_;
+    qint32 size_;
+    bool synchronous_;
 };
 
 class QAmqpMethodFrameHandler
