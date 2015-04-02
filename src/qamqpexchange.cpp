@@ -55,7 +55,7 @@ void QAmqpExchangePrivate::declare()
     QAmqpFrame::writeAmqpField(stream, QAmqpMetaType::Hash, arguments);
 
     frame.setArguments(args);
-    sendFrame(frame);
+    sendFrame(frame, true);
     delayedDeclare = false;
 }
 
@@ -110,6 +110,7 @@ void QAmqpExchangePrivate::declareOk(const QAmqpMethodFrame &frame)
     qAmqpDebug() << "declared exchange: " << name;
     declared = true;
     Q_EMIT q->declared();
+    clearPending();
 }
 
 void QAmqpExchangePrivate::deleteOk(const QAmqpMethodFrame &frame)
@@ -120,6 +121,7 @@ void QAmqpExchangePrivate::deleteOk(const QAmqpMethodFrame &frame)
     qAmqpDebug() << "deleted exchange: " << name;
     declared = false;
     Q_EMIT q->removed();
+    clearPending();
 }
 
 void QAmqpExchangePrivate::_q_disconnected()
@@ -258,7 +260,7 @@ void QAmqpExchange::remove(int options)
     stream << qint8(options);
 
     frame.setArguments(arguments);
-    d->sendFrame(frame);
+    d->sendFrame(frame, true);
 }
 
 void QAmqpExchange::publish(const QString &message, const QString &routingKey,
