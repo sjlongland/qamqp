@@ -82,14 +82,20 @@ void QAmqpChannelPrivate::_q_open()
     open();
 }
 
-void QAmqpChannelPrivate::sendFrame(const QAmqpFrame &frame)
+void QAmqpChannelPrivate::sendFrame(const QAmqpFrame &frame,
+        bool synchronous)
 {
     if (!client) {
         qAmqpDebug() << Q_FUNC_INFO << "invalid client";
         return;
     }
 
-    client->d_func()->sendFrame(frame);
+    if (hasPending()) {
+        pending.enqueue(QAmqpPendingFrame(frame, synchronous));
+    } else {
+        syncPending = synchronous;
+        client->d_func()->sendFrame(frame);
+    }
 }
 
 void QAmqpChannelPrivate::open()
@@ -100,6 +106,9 @@ void QAmqpChannelPrivate::open()
     if (!client->isConnected())
         return;
 
+    syncPending = false;
+    pending.clear();
+
     qAmqpDebug("Open channel #%d", channelNumber);
     QAmqpMethodFrame frame(QAmqpFrame::Channel, miOpen);
     frame.setChannel(channelNumber);
@@ -109,7 +118,7 @@ void QAmqpChannelPrivate::open()
     arguments[0] = 0;
 
     frame.setArguments(arguments);
-    sendFrame(frame);
+    sendFrame(frame, true);
 }
 
 void QAmqpChannelPrivate::flow(bool active)
@@ -121,7 +130,7 @@ void QAmqpChannelPrivate::flow(bool active)
     QAmqpMethodFrame frame(QAmqpFrame::Channel, miFlow);
     frame.setChannel(channelNumber);
     frame.setArguments(arguments);
-    sendFrame(frame);
+    sendFrame(frame, true);
 }
 
 // NOTE: not implemented until I can figure out a good way to force the server
@@ -148,6 +157,7 @@ void QAmqpChannelPrivate::flowOk(const QAmqpMethodFrame &frame)
         Q_EMIT q->resumed();
     else
         Q_EMIT q->paused();
+    clearPending();
 }
 
 void QAmqpChannelPrivate::close(int code, const QString &text, int classId, int methodId)
@@ -169,7 +179,7 @@ void QAmqpChannelPrivate::close(int code, const QString &text, int classId, int 
     QAmqpMethodFrame frame(QAmqpFrame::Channel, miClose);
     frame.setChannel(channelNumber);
     frame.setArguments(arguments);
-    sendFrame(frame);
+    sendFrame(frame, true);
 }
 
 void QAmqpChannelPrivate::close(const QAmqpMethodFrame &frame)
@@ -202,7 +212,8 @@ void QAmqpChannelPrivate::close(const QAmqpMethodFrame &frame)
     // complete handshake
     QAmqpMethodFrame closeOkFrame(QAmqpFrame::Channel, miCloseOk);
     closeOkFrame.setChannel(channelNumber);
-    sendFrame(closeOkFrame);
+    clearPending();
+    sendFrame(closeOkFrame, false);
 }
 
 void QAmqpChannelPrivate::closeOk(const QAmqpMethodFrame &)
@@ -211,6 +222,7 @@ void QAmqpChannelPrivate::closeOk(const QAmqpMethodFrame &)
     Q_EMIT q->closed();
     q->channelClosed();
     opened = false;
+    clearPending();
 }
 
 void QAmqpChannelPrivate::openOk(const QAmqpMethodFrame &)
@@ -220,6 +232,7 @@ void QAmqpChannelPrivate::openOk(const QAmqpMethodFrame &)
     opened = true;
     Q_EMIT q->opened();
     q->channelOpened();
+    clearPending();
 }
 
 void QAmqpChannelPrivate::_q_disconnected()
@@ -236,6 +249,27 @@ void QAmqpChannelPrivate::qosOk(const QAmqpMethodFrame &frame)
     prefetchCount = requestedPrefetchCount;
     prefetchSize = requestedPrefetchSize;
     Q_EMIT q->qosDefined();
+    clearPending();
+}
+
+bool QAmqpChannelPrivate::hasPending() const
+{
+    return (syncPending || (!pending.isEmpty()));
+}
+
+void QAmqpChannelPrivate::sendPending()
+{
+    while (!(syncPending || pending.isEmpty())) {
+        QAmqpPendingFrame frame(pending.dequeue());
+        syncPending = frame.synchronous();
+        client->d_func()->sendFrame(frame);
+    }
+}
+
+void QAmqpChannelPrivate::clearPending()
+{
+    syncPending = false;
+    sendPending();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -307,7 +341,7 @@ void QAmqpChannel::qos(qint16 prefetchCount, qint32 prefetchSize)
     stream << qint8(0x0);   // global
 
     frame.setArguments(arguments);
-    d->sendFrame(frame);
+    d->sendFrame(frame, true);
 }
 
 qint32 QAmqpChannel::prefetchSize() const

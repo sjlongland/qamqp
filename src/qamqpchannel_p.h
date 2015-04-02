@@ -2,6 +2,7 @@
 #define QAMQPCHANNEL_P_H
 
 #include <QPointer>
+#include <QQueue>
 #include "qamqpframe_p.h"
 
 #define METHOD_ID_ENUM(name, id) name = id, name ## Ok
@@ -38,7 +39,7 @@ public:
     virtual ~QAmqpChannelPrivate();
 
     void init(int channel, QAmqpClient *client);
-    void sendFrame(const QAmqpFrame &frame);
+    void sendFrame(const QAmqpFrame &frame, bool synchronous=false);
 
     void open();
     void flow(bool active);
@@ -58,12 +59,19 @@ public:
     virtual void _q_disconnected();
     void _q_open();
 
+    bool hasPending() const;
+    void sendPending();
+    void clearPending();
+
     QPointer<QAmqpClient> client;
     QString name;
     quint16 channelNumber;
     static quint16 nextChannelNumber;
     bool opened;
     bool needOpen;
+
+    bool syncPending;
+    QQueue<QAmqpPendingFrame> pending;
 
     qint32 prefetchSize;
     qint32 requestedPrefetchSize;
