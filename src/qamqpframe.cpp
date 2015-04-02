@@ -482,12 +482,13 @@ QAmqpPendingFrame::QAmqpPendingFrame()
 
 QAmqpPendingFrame::QAmqpPendingFrame(const QAmqpFrame& frame, bool synchronous)
 	 : QAmqpFrame(frame.type()), payload_(), size_(frame.size()),
-     synchronous_(synchronous)
+       synchronous_(synchronous)
 {
-    QBuffer payload;
+    QBuffer payload(&payload_);
     QDataStream stream(&payload);
+    payload.open(QIODevice::WriteOnly);
     frame.writePayload(stream);
-    payload_ = payload.buffer();
+    setChannel(frame.channel());
 }
 
 qint32 QAmqpPendingFrame::size() const
@@ -507,5 +508,5 @@ void QAmqpPendingFrame::readPayload(QDataStream &stream)
 
 void QAmqpPendingFrame::writePayload(QDataStream &stream) const
 {
-    stream << payload_;
+    stream.writeRawData(payload_.data(), payload_.size());
 }
