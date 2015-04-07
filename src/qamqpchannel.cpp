@@ -273,9 +273,11 @@ void QAmqpChannelPrivate::qosOk(const QAmqpMethodFrame &frame)
 /*! Report and change state. */
 void QAmqpChannelPrivate::newState(ChannelState state)
 {
-    qAmqpDebug() << "Channel state: "
+    qAmqpDebug() << "Channel"
+                 << name
+                 << "state:"
                  << channelState
-                 << " -> "
+                 << "->"
                  << state;
     channelState = state;
 }
