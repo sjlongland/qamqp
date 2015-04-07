@@ -85,6 +85,9 @@ public:
     ChannelState channelState;
     bool needOpen;
 
+    /*! Report and change state. */
+    virtual void newState(ChannelState state);
+
     /*! Flag: the user has defined QOS settings */
     bool qosDefined;
     /*! Flag: channel was open at time of qos call */
@@ -100,5 +103,7 @@ public:
     Q_DECLARE_PUBLIC(QAmqpChannel)
     QAmqpChannel * const q_ptr;
 };
+
+QDebug operator<<(QDebug dbg, QAmqpChannelPrivate::ChannelState s);
 
 #endif // QAMQPCHANNEL_P_H
