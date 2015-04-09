@@ -33,13 +33,14 @@ QAmqpExchangePrivate::QAmqpExchangePrivate(QAmqpExchange *q)
 void QAmqpExchangePrivate::declare()
 {
     Q_Q(QAmqpExchange);
-    if (channelState != ChannelClosedState) {
-        qAmqpDebug()    << Q_FUNC_INFO
-                        << "Channel is closed, re-opening and delaying declare.";
+    if (channelState != ChannelOpenState) {
+        qAmqpDebug() << Q_FUNC_INFO << "Channel is closed, re-opening and delaying declare.";
         delayedDeclare = true;
         delayedRemove = false;
-        needOpen = true;
-        q->reopen();
+        if (channelState == ChannelClosedState) {
+            needOpen = true;
+            q->reopen();
+        }
         return;
     }
 
@@ -343,14 +344,15 @@ void QAmqpExchange::declare(const QString &type, ExchangeOptions options, const 
 void QAmqpExchange::remove(int options)
 {
     Q_D(QAmqpExchange);
-    if (!isOpen()) {
-        qAmqpDebug()    << Q_FUNC_INFO
-                        << "Channel is closed, re-opening and delaying remove.";
+    if (d->channelState != QAmqpChannelPrivate::ChannelOpenState) {
+        qAmqpDebug() << Q_FUNC_INFO << "Channel is closed, re-opening and delaying remove.";
         d->delayedDeclare = false;
         d->delayedRemove = true;
-        d->needOpen = true;
         d->removeOptions = options;
-        reopen();
+        if (d->channelState == QAmqpChannelPrivate::ChannelClosedState) {
+            d->needOpen = true;
+            reopen();
+        }
         return;
     }
 
