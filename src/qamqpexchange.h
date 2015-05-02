@@ -107,6 +107,12 @@ protected:
     virtual void channelOpened();
     virtual void channelClosed();
 
+private Q_SLOTS:
+    /*!
+     * Spoof an error condition.  The error must have been set beforehand.
+     */
+    void spoofError();
+
 private:
     explicit QAmqpExchange(int channelNumber = -1, QAmqpClient *parent = 0);
 

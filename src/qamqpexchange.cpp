@@ -329,9 +329,25 @@ void QAmqpExchange::declare(ExchangeType type, ExchangeOptions options, const QA
     declare(QAmqpExchangePrivate::typeToString(type), options, args);
 }
 
+void QAmqpExchange::spoofError()
+{
+    Q_D(QAmqpExchange);
+    emit error(d->error);
+}
+
 void QAmqpExchange::declare(const QString &type, ExchangeOptions options, const QAmqpTable &args)
 {
     Q_D(QAmqpExchange);
+    if ((d->exchangeState == QAmqpExchangePrivate::ExchangeDeclaredState)
+            && ((d->type != type) || (d->options != options) || (d->arguments != args))) {
+        // Spoof the error that the AMQP broker would likely give us.
+        // This is what existing software would be expecting.
+        d->error = QAMQP::PreconditionFailedError;
+        d->errorString = "";
+        QTimer::singleShot(200, this, SLOT(spoofError()));
+        return;
+    }
+
     d->type = type;
     d->options = options;
     d->arguments = args;
