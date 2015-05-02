@@ -280,7 +280,6 @@ void tst_QAMQPQueue::bindUnbind()
     QVERIFY(waitForSignal(queue, SIGNAL(unbound())));
 
     QAmqpExchange *amqTopic = client->createExchange("amq.topic");
-    amqTopic->declare(QAmqpExchange::Direct, QAmqpExchange::Passive);
     QVERIFY(waitForSignal(amqTopic, SIGNAL(declared())));
     queue->bind(amqTopic, "routingKey");
     QVERIFY(waitForSignal(queue, SIGNAL(bound())));
